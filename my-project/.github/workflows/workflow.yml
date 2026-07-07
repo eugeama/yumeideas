@@ -18,13 +18,20 @@ jobs:
           cache: 'npm'
       
       - name: Instalar dependencias
-        run: npm install
+        run: npm ci
       
       - name: Compilar aplicación
         run: npm run build
       
       - name: Ejecutar tests
         run: echo "Tests pasados" # npm test cuando tengas tests
+      
+      - name: Deploy to Firebase
+        run: |
+          npm install -g firebase-tools
+          firebase deploy --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         
       - name: Mensaje de éxito
-        run: echo "✅ Build completado exitosamente!"
+        run: echo "✅ Build y Deploy completados exitosamente!"
