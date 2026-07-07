@@ -1,0 +1,242 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules - Yumeideas MVP
+ * 
+ * Proyecto: Yumeideas
+ * Fecha: 7 de julio de 2026
+ * Versión: 1.0
+ * 
+ * Colecciones:
+ * - /usuarios/{userId} - Datos de perfil de usuarios
+ * - /usernames/{username} - Reserva de usernames únicos
+ * - /publicaciones/{postId} - Publicaciones (ideas) de usuarios
+ * - /publicaciones/{postId}/likes/{userId} - Likes de publicaciones
+ * 
+ * Reglas de negocio implementadas:
+ * - AMB-01: Campos inmutables (email, fechaNacimiento, rol)
+ * - AMB-05: NO like a publicación propia
+ * - AMB-07: Admin NO puede afectar otro admin
+ * - AMB-09: Edad mínima 13 años
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Verifica si el usuario está autenticado
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    /**
+     * Obtiene los datos del usuario autenticado actual
+     */
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    
+    /**
+     * Verifica si el usuario autenticado es administrador
+     */
+    function isAdmin() {
+      return isAuthenticated() && getUserData().rol == 'admin';
+    }
+    
+    /**
+     * Verifica si un usuario objetivo es administrador
+     * @param userId - UID del usuario a verificar
+     */
+    function targetIsAdmin(userId) {
+      return get(/databases/$(database)/documents/usuarios/$(userId)).data.rol == 'admin';
+    }
+    
+    /**
+     * Valida que una fecha de nacimiento corresponda a edad >= 13 años
+     * @param fechaNacimiento - Timestamp de fecha de nacimiento
+     */
+    function isValidAge(fechaNacimiento) {
+      let now = request.time;
+      let birthDate = fechaNacimiento;
+      let age = now.year() - birthDate.year();
+      
+      // Ajustar si aún no cumplió años este año
+      let adjustedAge = (now.month() < birthDate.month() || 
+                        (now.month() == birthDate.month() && now.day() < birthDate.day()))
+                        ? age - 1 
+                        : age;
+      
+      return adjustedAge >= 13;
+    }
+    
+    /**
+     * Verifica si una publicación es pública
+     * @param publicacionId - ID de la publicación
+     */
+    function isPublicPost(publicacionId) {
+      return get(/databases/$(database)/documents/publicaciones/$(publicacionId)).data.visibilidad == 'publica';
+    }
+    
+    /**
+     * Verifica si el usuario autenticado es el autor de una publicación
+     * @param publicacionId - ID de la publicación
+     */
+    function isPostAuthor(publicacionId) {
+      return get(/databases/$(database)/documents/publicaciones/$(publicacionId)).data.autorId == request.auth.uid;
+    }
+    
+    /**
+     * Verifica si el autor de una publicación es administrador
+     * @param autorId - UID del autor
+     */
+    function isPostAuthorAdmin(autorId) {
+      return targetIsAdmin(autorId);
+    }
+    
+    // ============================================================================
+    // COLECCIÓN: /usuarios/{userId}
+    // ============================================================================
+    
+    /**
+     * Reglas para la colección de usuarios
+     * 
+     * Permisos:
+     * - Read: Cualquier usuario autenticado
+     * - Create: Solo el propio usuario, con validación de edad >= 13 años
+     * - Update: Solo el propio usuario, sin modificar email/fechaNacimiento/rol
+     * - Delete: Propio usuario O admin (con protección entre admins)
+     */
+    match /usuarios/{userId} {
+      // Lectura: cualquier usuario autenticado puede leer perfiles
+      allow read: if isAuthenticated();
+      
+      // Creación: solo el propio usuario, con validaciones
+      allow create: if isAuthenticated()
+                    && request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.rol == 'usuario'  // No auto-asignar admin
+                    && isValidAge(request.resource.data.fechaNacimiento)  // Edad >= 13
+                    && request.resource.data.keys().hasAll(['uid', 'username', 'email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+      
+      // Actualización: solo el propio usuario, sin modificar campos inmutables (AMB-01)
+      allow update: if isAuthenticated()
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+      
+      // Borrado: propio usuario O admin (con protección entre admins - AMB-07)
+      allow delete: if isAuthenticated()
+                    && (request.auth.uid == userId || (isAdmin() && !targetIsAdmin(userId)));
+    }
+    
+    // ============================================================================
+    // COLECCIÓN: /usernames/{username}
+    // ============================================================================
+    
+    /**
+     * Reglas para la colección auxiliar de usernames
+     * 
+     * Propósito: Garantizar unicidad de usernames mediante transacciones
+     * 
+     * Permisos:
+     * - Read: Cualquier usuario autenticado (para validar disponibilidad)
+     * - Create: Solo si el userId coincide con el usuario autenticado
+     * - Update: Prohibido (solo create/delete)
+     * - Delete: Solo el dueño del username
+     */
+    match /usernames/{username} {
+      // Lectura: para validar disponibilidad de username en UI
+      allow read: if isAuthenticated();
+      
+      // Creación: solo si el userId es del usuario autenticado
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Actualización: prohibida (usernames se crean o borran, no se modifican)
+      allow update: if false;
+      
+      // Borrado: solo el dueño del username (para cambio de username)
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // COLECCIÓN: /publicaciones/{postId}
+    // ============================================================================
+    
+    /**
+     * Reglas para la colección de publicaciones
+     * 
+     * Permisos:
+     * - Read: Según visibilidad (pública = todos, privada = autor/admin)
+     * - Create: Cualquier usuario autenticado
+     * - Update: Solo el autor (sin modificar campos inmutables)
+     * - Delete: Autor O admin (con protección entre admins)
+     */
+    match /publicaciones/{postId} {
+      // Lectura: según visibilidad
+      // - Pública: cualquier usuario autenticado
+      // - Privada: solo autor o admin
+      allow read: if isAuthenticated()
+                  && (resource.data.visibilidad == 'publica'
+                      || resource.data.autorId == request.auth.uid
+                      || isAdmin());
+      
+      // Creación: cualquier usuario autenticado
+      allow create: if isAuthenticated()
+                    && request.resource.data.autorId == request.auth.uid
+                    && request.resource.data.contenido.size() > 0
+                    && request.resource.data.contenido.size() <= 500
+                    && request.resource.data.visibilidad in ['publica', 'privada']
+                    && request.resource.data.likesCount == 0
+                    && request.resource.data.keys().hasAll(['contenido', 'autorId', 'autorUsername', 'autorRol', 'visibilidad', 'fechaCreacion', 'fechaModificacion', 'likesCount']);
+      
+      // Actualización: solo el autor, sin modificar campos inmutables
+      allow update: if isAuthenticated()
+                    && resource.data.autorId == request.auth.uid
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['autorId', 'autorUsername', 'autorRol', 'fechaCreacion', 'likesCount']);
+      
+      // Borrado: autor O admin (con protección entre admins - AMB-07)
+      allow delete: if isAuthenticated()
+                    && (resource.data.autorId == request.auth.uid
+                        || (isAdmin() && !isPostAuthorAdmin(resource.data.autorId)));
+      
+      // ============================================================================
+      // SUBCOLECCIÓN: /publicaciones/{postId}/likes/{userId}
+      // ============================================================================
+      
+      /**
+       * Reglas para la subcolección de likes
+       * 
+       * Permisos:
+       * - Read: Cualquier usuario autenticado
+       * - Create: Solo si publicación es pública Y usuario no es el autor (AMB-05)
+       * - Update: Prohibido
+       * - Delete: Solo el propio usuario (para quitar like)
+       */
+      match /likes/{likeUserId} {
+        // Lectura: cualquier usuario autenticado
+        allow read: if isAuthenticated();
+        
+        // Creación: solo si la publicación es pública y el usuario no es el autor (AMB-05)
+        allow create: if isAuthenticated()
+                      && request.auth.uid == likeUserId
+                      && isPublicPost(postId)
+                      && !isPostAuthor(postId)
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.keys().hasAll(['userId', 'timestamp']);
+        
+        // Actualización: prohibida (likes se crean o borran, no se modifican)
+        allow update: if false;
+        
+        // Borrado: solo el propio usuario (toggle de like)
+        allow delete: if isAuthenticated()
+                      && request.auth.uid == likeUserId;
+      }
+    }
+  }
+}

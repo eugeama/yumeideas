@@ -1,0 +1,94 @@
+.feed-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: var(--spacing-lg);
+}
+
+.feed-container {
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.feed-header {
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.feed-error {
+  background-color: #fee;
+  color: #c33;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feed-error button {
+  background: none;
+  border: none;
+  color: #c33;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 var(--spacing-sm);
+}
+
+.feed-loading {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-secondary);
+}
+
+.feed-create-button {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.feed-create-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.feed-header {
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.feed-header h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.feed-header p {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .feed-page {
+    padding: var(--spacing-md);
+  }
+
+  .feed-header {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .feed-header h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .feed-header p {
+    font-size: var(--font-size-base);
+  }
+}

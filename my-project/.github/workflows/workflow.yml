@@ -1,0 +1,15 @@
+name: Mi Primer Workflow
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+        
+      - name: Ejecutar un comando
+        run: echo "¡Hola mundo desde GitHub Actions!"

@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Obtener datos del usuario actual
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/usuarios/$(uid)).data;
+    }
+    
+    // Verificar si el usuario actual es administrador
+    function isAdmin() {
+      return request.auth != null && getUserData(request.auth.uid).rol == 'admin';
+    }
+    
+    // Verificar si un usuario específico es administrador
+    function targetIsAdmin(targetUid) {
+      return getUserData(targetUid).rol == 'admin';
+    }
+    
+    // Calcular edad a partir de fecha de nacimiento
+    function getAge(birthdate) {
+      // Convertir diferencia de tiempo a años
+      let ageInYears = duration.time(request.time - birthdate) / duration.value(1, 'y');
+      return ageInYears;
+    }
+    
+    // Validar que la edad sea >= 13 años
+    function isValidAge(birthdate) {
+      return getAge(birthdate) >= 13;
+    }
+    
+    // Verificar si una publicación es pública
+    function isPublicPost(publicacionId) {
+      return get(/databases/$(database)/documents/publicaciones/$(publicacionId)).data.visibilidad == 'publica';
+    }
+    
+    // Verificar si el usuario es el autor de una publicación
+    function isPostAuthor(publicacionId, userId) {
+      return get(/databases/$(database)/documents/publicaciones/$(publicacionId)).data.autorId == userId;
+    }
+    
+    // ============================================
+    // COLECCIÓN: usuarios
+    // ============================================
+    
+    match /usuarios/{userId} {
+      // LEER: Cualquier usuario autenticado puede leer cualquier perfil
+      allow read: if request.auth != null;
+      
+      // CREAR: Solo el propio usuario puede crear su documento
+      // Validaciones:
+      // - El userId debe coincidir con el auth.uid
+      // - La edad debe ser >= 13 años
+      // - El rol debe ser 'usuario' (no auto-asignarse admin)
+      allow create: if request.auth.uid == userId
+                    && isValidAge(request.resource.data.fechaNacimiento)
+                    && request.resource.data.rol == 'usuario'
+                    && request.resource.data.keys().hasAll(['username', 'email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+      
+      // ACTUALIZAR: Solo el propio usuario puede actualizar su documento
+      // Restricciones:
+      // - NO se puede modificar: email, fechaNacimiento, rol
+      // - Solo se puede modificar: username
+      allow update: if request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+      
+      // BORRAR: Propio usuario O (admin Y target NO es admin)
+      allow delete: if request.auth.uid == userId 
+                    || (isAdmin() && !targetIsAdmin(userId));
+    }
+    
+    // ============================================
+    // COLECCIÓN: usernames
+    // ============================================
+    
+    match /usernames/{username} {
+      // LEER: Cualquier usuario autenticado (para validar disponibilidad en UI)
+      allow read: if request.auth != null;
+      
+      // CREAR: Solo si el userId del documento coincide con el auth.uid
+      // (usado en transacción de registro para reservar username)
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // BORRAR: Solo el propio usuario dueño del username
+      // (usado en transacción de cambio de username)
+      allow delete: if request.auth.uid == resource.data.userId;
+      
+      // ACTUALIZAR: No permitido (username se reserva/libera, no se actualiza)
+      allow update: if false;
+    }
+    
+    // ============================================
+    // COLECCIÓN: publicaciones
+    // ============================================
+    
+    match /publicaciones/{publicacionId} {
+      // LEER: Depende de la visibilidad
+      // - Pública: cualquier usuario autenticado
+      // - Privada: solo autor o administrador
+      allow read: if request.auth != null 
+                  && (resource.data.visibilidad == 'publica' 
+                      || request.auth.uid == resource.data.autorId 
+                      || isAdmin());
+      
+      // CREAR: Cualquier usuario autenticado puede crear una publicación
+      // Validaciones:
+      // - El autorId debe coincidir con el auth.uid
+      // - El contenido no puede estar vacío
+      // - Debe incluir todos los campos requeridos
+      allow create: if request.auth != null 
+                    && request.resource.data.autorId == request.auth.uid
+                    && request.resource.data.contenido.size() > 0
+                    && request.resource.data.keys().hasAll([
+                         'contenido', 'autorId', 'autorUsername', 'autorRol',
+                         'visibilidad', 'fechaCreacion', 'fechaModificacion', 'likesCount'
+                       ]);
+      
+      // ACTUALIZAR: Solo el autor puede modificar su publicación
+      // Restricciones:
+      // - NO se puede modificar: autorId, autorUsername, fechaCreacion
+      // - Solo se puede modificar: contenido, visibilidad, fechaModificacion
+      // - likesCount se actualiza solo mediante transacciones de like
+      // IMPORTANTE: Admins NO pueden modificar publicaciones ajenas
+      allow update: if request.auth.uid == resource.data.autorId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['autorId', 'autorUsername', 'autorRol', 'fechaCreacion'])
+                    && request.resource.data.contenido.size() > 0;
+      
+      // BORRAR: Autor O (admin Y autor NO es admin)
+      // Protección entre administradores: un admin NO puede borrar publicaciones de otro admin
+      allow delete: if request.auth.uid == resource.data.autorId 
+                    || (isAdmin() && !targetIsAdmin(resource.data.autorId));
+      
+      // ============================================
+      // SUBCOLECCIÓN: likes
+      // ============================================
+      
+      match /likes/{userId} {
+        // LEER: Cualquier usuario autenticado que pueda leer la publicación padre
+        allow read: if request.auth != null;
+        
+        // CREAR: Solo el propio usuario puede dar like
+        // Restricciones:
+        // - La publicación debe ser pública
+        // - El usuario NO puede ser el autor de la publicación
+        // - El userId del documento debe coincidir con el auth.uid
+        allow create: if request.auth.uid == userId 
+                      && isPublicPost(publicacionId)
+                      && !isPostAuthor(publicacionId, userId)
+                      && request.resource.data.userId == userId;
+        
+        // BORRAR: Solo el propio usuario puede quitar su like
+        allow delete: if request.auth.uid == userId;
+        
+        // ACTUALIZAR: No permitido (likes se crean o borran, no se modifican)
+        allow update: if false;
+      }
+    }
+  }
+}

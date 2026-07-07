@@ -1,0 +1,124 @@
+/**
+ * Estilos del componente Button
+ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm, 8px);
+  font-weight: var(--font-weight-medium, 500);
+  border-radius: var(--radius-md, 6px);
+  transition: all var(--transition-fast, 150ms);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tamaños */
+.button--sm {
+  padding: var(--spacing-xs, 4px) var(--spacing-sm, 8px);
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.button--md {
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  font-size: var(--font-size-base, 1rem);
+}
+
+.button--lg {
+  padding: var(--spacing-md, 16px) var(--spacing-lg, 24px);
+  font-size: var(--font-size-lg, 1.125rem);
+}
+
+/* Variantes */
+.button--primary {
+  background-color: var(--color-primary, #3b82f6);
+  color: white;
+}
+
+.button--primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark, #2563eb);
+}
+
+.button--secondary {
+  background-color: var(--color-gray-200, #e5e7eb);
+  color: var(--text-primary, #111827);
+}
+
+.button--secondary:hover:not(:disabled) {
+  background-color: var(--color-gray-300, #d1d5db);
+}
+
+.button--outline {
+  background-color: transparent;
+  border-color: var(--border-color, #e5e7eb);
+  color: var(--text-primary, #111827);
+}
+
+.button--outline:hover:not(:disabled) {
+  background-color: var(--bg-secondary, #f9fafb);
+  border-color: var(--color-gray-300, #d1d5db);
+}
+
+.button--ghost {
+  background-color: transparent;
+  color: var(--text-primary, #111827);
+}
+
+.button--ghost:hover:not(:disabled) {
+  background-color: var(--bg-secondary, #f9fafb);
+}
+
+.button--danger {
+  background-color: var(--color-error, #ef4444);
+  color: white;
+}
+
+.button--danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+/* Ancho completo */
+.button--full-width {
+  width: 100%;
+}
+
+/* Estado de carga */
+.button--loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.button__spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.button__content--loading {
+  opacity: 0.6;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

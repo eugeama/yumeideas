@@ -1,0 +1,118 @@
+/**
+ * Estilos del componente Header
+ */
+
+.header {
+  background-color: var(--bg-primary, #ffffff);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 1020);
+}
+
+.header__container {
+  max-width: var(--container-xl, 1280px);
+  margin: 0 auto;
+  padding: var(--spacing-md, 16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg, 24px);
+}
+
+.header__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  text-decoration: none;
+  color: var(--text-primary, #111827);
+  font-weight: var(--font-weight-bold, 700);
+  font-size: var(--font-size-xl, 1.25rem);
+  transition: opacity var(--transition-fast, 150ms);
+}
+
+.header__logo:hover {
+  opacity: 0.8;
+}
+
+.header__logo-icon {
+  font-size: var(--font-size-2xl, 1.5rem);
+}
+
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 16px);
+  flex: 1;
+}
+
+.header__nav-link {
+  color: var(--text-secondary, #6b7280);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium, 500);
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  border-radius: var(--radius-md, 6px);
+  transition: all var(--transition-fast, 150ms);
+}
+
+.header__nav-link:hover {
+  color: var(--text-primary, #111827);
+  background-color: var(--bg-secondary, #f9fafb);
+}
+
+.header__nav-link--admin {
+  color: var(--color-primary, #3b82f6);
+}
+
+.header__user {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 16px);
+}
+
+.header__username {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--text-primary, #111827);
+}
+
+.header__badge {
+  background-color: var(--color-primary, #3b82f6);
+  color: white;
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+}
+
+.header__user-loading {
+  color: var(--text-secondary, #6b7280);
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.header__auth-links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header__container {
+    flex-wrap: wrap;
+  }
+
+  .header__nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: center;
+    padding-top: var(--spacing-sm, 8px);
+    border-top: 1px solid var(--border-color, #e5e7eb);
+  }
+
+  .header__username {
+    display: none;
+  }
+}
