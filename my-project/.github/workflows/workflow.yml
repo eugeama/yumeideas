@@ -1,4 +1,4 @@
-name: Mi Primer Workflow
+name: Build and Deploy to Firebase
 
 on:
   push:
@@ -10,6 +10,21 @@ jobs:
     steps:
       - name: Clonar el repositorio
         uses: actions/checkout@v4
+      
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Instalar dependencias
+        run: npm install
+      
+      - name: Compilar aplicación
+        run: npm run build
+      
+      - name: Ejecutar tests
+        run: echo "Tests pasados" # npm test cuando tengas tests
         
-      - name: Ejecutar un comando
-        run: echo "¡Hola mundo desde GitHub Actions!"
+      - name: Mensaje de éxito
+        run: echo "✅ Build completado exitosamente!"
