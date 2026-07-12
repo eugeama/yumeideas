@@ -42,6 +42,8 @@ interface PostListProps {
   onEdit?: (postId: string) => void;
   /** Callback al borrar */
   onDelete?: (postId: string) => void;
+  /** Callback al hacer clic en el autor */
+  onAuthorClick?: (authorId: string) => void;
   /** Mensaje cuando no hay publicaciones */
   emptyMessage?: string;
 }
@@ -56,6 +58,7 @@ export function PostList({
   onLike,
   onEdit,
   onDelete,
+  onAuthorClick,
   emptyMessage = 'No hay publicaciones para mostrar',
 }: PostListProps) {
   if (loading && posts.length === 0) {
@@ -96,6 +99,7 @@ export function PostList({
             onLike={onLike ? () => onLike(post.id) : undefined}
             onEdit={onEdit ? () => onEdit(post.id) : undefined}
             onDelete={onDelete ? () => onDelete(post.id) : undefined}
+            onAuthorClick={onAuthorClick}
           />
         ))}
       </div>

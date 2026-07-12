@@ -339,12 +339,23 @@ export class PostService {
     lastDocument?: QueryDocumentSnapshot
   ): Promise<PostsQueryResult> {
     try {
-      let q = query(
-        collection(db, 'publicaciones'),
-        where('autorId', '==', userId),
-        orderBy('fechaCreacion', 'desc'),
-        limit(pageSize + 1)
-      );
+      // Si no es dueño ni admin, consultamos solo públicas para cumplir reglas de seguridad.
+      const isOwnerOrAdmin = currentUser.uid === userId || currentUser.isAdmin();
+
+      let q = isOwnerOrAdmin
+        ? query(
+            collection(db, 'publicaciones'),
+            where('autorId', '==', userId),
+            orderBy('fechaCreacion', 'desc'),
+            limit(pageSize + 1)
+          )
+        : query(
+            collection(db, 'publicaciones'),
+            where('autorId', '==', userId),
+            where('visibilidad', '==', PostVisibility.PUBLICA),
+            orderBy('fechaCreacion', 'desc'),
+            limit(pageSize + 1)
+          );
 
       if (lastDocument) {
         q = query(q, startAfter(lastDocument));
@@ -355,9 +366,6 @@ export class PostService {
 
       const hasMore = docs.length > pageSize;
       const postsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
-
-      // Filtrar publicaciones según permisos
-      const isOwnerOrAdmin = currentUser.uid === userId || currentUser.isAdmin();
 
       const posts = postsToReturn
         .map((doc) => Publicacion.fromFirestore(doc.id, doc.data()))

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PostList, PostData } from '../components/post/PostList';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -19,11 +20,17 @@ import './ProfilePage.css';
 type TabType = 'publicas' | 'privadas';
 
 export function ProfilePage() {
+  const navigate = useNavigate();
   const { usuario, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('publicas');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>('');
+  const [editingVisibility, setEditingVisibility] = useState<PostVisibility>(PostVisibility.PUBLICA);
   const [allPosts, setAllPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editLoading, setEditLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
   // T092: Cargar publicaciones del usuario
@@ -102,8 +109,59 @@ export function ProfilePage() {
   };
 
   const handleEdit = (postId: string) => {
-    // TODO: Implementar edición inline o modal
-    console.log('Editar post:', postId);
+    // Buscar la publicación a editar
+    const post = allPosts.find(p => p.id === postId);
+    if (!post) return;
+
+    // Establecer el contenido y visibilidad actual
+    setEditingPostId(postId);
+    setEditingContent(post.content);
+    setEditingVisibility(post.visibility as PostVisibility);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (content: string, visibility: PostVisibility) => {
+    if (!usuario || !editingPostId) return;
+
+    setEditLoading(true);
+    setError('');
+
+    try {
+      const result = await PostService.updatePost(
+        editingPostId,
+        {
+          contenido: content,
+          visibilidad: visibility,
+        },
+        usuario
+      );
+
+      if (!result.success) {
+        setError(result.error || 'Error al editar publicación');
+        setEditLoading(false);
+        return;
+      }
+
+      // Actualizar la publicación en la lista
+      setAllPosts(allPosts.map(post => {
+        if (post.id === editingPostId) {
+          return {
+            ...post,
+            content,
+            visibility,
+          };
+        }
+        return post;
+      }));
+
+      setShowEditModal(false);
+      setEditingPostId(null);
+      setEditLoading(false);
+    } catch (err: any) {
+      console.error('Error al editar publicación:', err);
+      setError('Error al editar publicación');
+      setEditLoading(false);
+    }
   };
 
   const handleDelete = async (postId: string) => {
@@ -157,12 +215,20 @@ export function ProfilePage() {
             <h1>Mi perfil</h1>
             <p className="profile-username">@{usuario.username}</p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowCreateModal(true)}
-          >
-            + Nueva publicación
-          </Button>
+          <div className="profile-actions">
+            <Button
+              variant="primary"
+              onClick={() => setShowCreateModal(true)}
+            >
+              + Nueva publicación
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/profile/edit')}
+            >
+              ✏️ Editar perfil
+            </Button>
+          </div>
         </header>
 
         {error && (
@@ -194,6 +260,7 @@ export function ProfilePage() {
             isAdmin={isAdmin}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}
             emptyMessage={
               activeTab === 'publicas'
                 ? 'No tienes publicaciones públicas aún'
@@ -212,6 +279,29 @@ export function ProfilePage() {
           <PostForm
             onSave={handleCreatePost}
             onCancel={() => setShowCreateModal(false)}
+          />
+        </Modal>
+      )}
+
+      {showEditModal && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingPostId(null);
+          }}
+          title="Editar publicación"
+        >
+          <PostForm
+            initialContent={editingContent}
+            initialVisibility={editingVisibility}
+            isEditing={true}
+            loading={editLoading}
+            onSave={handleSaveEdit}
+            onCancel={() => {
+              setShowEditModal(false);
+              setEditingPostId(null);
+            }}
           />
         </Modal>
       )}

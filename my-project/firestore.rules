@@ -195,10 +195,27 @@ service cloud.firestore {
                     && request.resource.data.likesCount == 0
                     && request.resource.data.keys().hasAll(['contenido', 'autorId', 'autorUsername', 'autorRol', 'visibilidad', 'fechaCreacion', 'fechaModificacion', 'likesCount']);
       
-      // Actualización: solo el autor, sin modificar campos inmutables
+      // Actualización:
+      // A) Edición de post por el autor (contenido/visibilidad/fechaModificacion)
+      // B) Ajuste de likesCount por usuarios autenticados no autores en posts públicos
       allow update: if isAuthenticated()
-                    && resource.data.autorId == request.auth.uid
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['autorId', 'autorUsername', 'autorRol', 'fechaCreacion', 'likesCount']);
+                    && (
+                      (
+                        resource.data.autorId == request.auth.uid
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['autorId', 'autorRol', 'fechaCreacion', 'likesCount'])
+                        && request.resource.data.autorUsername == getUserData().username
+                      )
+                      ||
+                      (
+                        resource.data.visibilidad == 'publica'
+                        && resource.data.autorId != request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount'])
+                        && (
+                          request.resource.data.likesCount == resource.data.likesCount + 1
+                          || request.resource.data.likesCount == resource.data.likesCount - 1
+                        )
+                      )
+                    );
       
       // Borrado: autor O admin (con protección entre admins - AMB-07)
       allow delete: if isAuthenticated()

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 import { PostList, PostData } from '../components/post/PostList';
 import { PostService } from '../../application/services/postService';
@@ -18,6 +19,7 @@ import { PostVisibility } from '../../domain/enums/PostVisibility';
 import './FeedPage.css';
 
 export function FeedPage() {
+  const navigate = useNavigate();
   const { usuario, isAdmin } = useAuth();
   const [posts, setPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,6 +28,11 @@ export function FeedPage() {
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | undefined>();
   const [error, setError] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>('');
+  const [editingVisibility, setEditingVisibility] = useState<PostVisibility>(PostVisibility.PUBLICA);
+  const [editLoading, setEditLoading] = useState(false);
 
   // T091: Cargar feed inicial
   useEffect(() => {
@@ -165,8 +172,59 @@ export function FeedPage() {
   };
 
   const handleEdit = (postId: string) => {
-    // TODO: Implementar edición inline o modal
-    console.log('Editar post:', postId);
+    // Buscar la publicación a editar
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    // Establecer el contenido y visibilidad actual
+    setEditingPostId(postId);
+    setEditingContent(post.content);
+    setEditingVisibility(post.visibility as PostVisibility);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (content: string, visibility: PostVisibility) => {
+    if (!usuario || !editingPostId) return;
+
+    setEditLoading(true);
+    setError('');
+
+    try {
+      const result = await PostService.updatePost(
+        editingPostId,
+        {
+          contenido: content,
+          visibilidad: visibility,
+        },
+        usuario
+      );
+
+      if (!result.success) {
+        setError(result.error || 'Error al editar publicación');
+        setEditLoading(false);
+        return;
+      }
+
+      // Actualizar la publicación en la lista
+      setPosts(posts.map(post => {
+        if (post.id === editingPostId) {
+          return {
+            ...post,
+            content,
+            visibility,
+          };
+        }
+        return post;
+      }));
+
+      setShowEditModal(false);
+      setEditingPostId(null);
+      setEditLoading(false);
+    } catch (err: any) {
+      console.error('Error al editar publicación:', err);
+      setError('Error al editar publicación');
+      setEditLoading(false);
+    }
   };
 
   const handleDelete = async (postId: string) => {
@@ -259,6 +317,7 @@ export function FeedPage() {
             onLike={handleLike}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}
             emptyMessage="No hay publicaciones públicas aún. ¡Sé el primero en publicar!"
           />
         </div>
@@ -285,6 +344,30 @@ export function FeedPage() {
           <PostForm
             onSave={handleCreatePost}
             onCancel={() => setShowCreateModal(false)}
+          />
+        </Modal>
+      )}
+
+      {/* Modal para editar publicación */}
+      {showEditModal && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingPostId(null);
+          }}
+          title="Editar publicación"
+        >
+          <PostForm
+            initialContent={editingContent}
+            initialVisibility={editingVisibility}
+            isEditing={true}
+            loading={editLoading}
+            onSave={handleSaveEdit}
+            onCancel={() => {
+              setShowEditModal(false);
+              setEditingPostId(null);
+            }}
           />
         </Modal>
       )}

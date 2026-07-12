@@ -61,11 +61,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   /**
    * Cargar datos del usuario desde Firestore
+   * Con reintentos automáticos para manejar latencia de replicación
    */
   const loadUserData = async (uid: string) => {
     try {
       const userData = await UserService.getUserData(uid);
       setUsuario(userData);
+      
+      if (!userData) {
+        console.warn(
+          'Usuario no pudo ser cargado después de reintentos. ' +
+          'Esto puede ser temporal - intenta recargar la página.'
+        );
+      }
     } catch (error) {
       console.error('Error al cargar datos del usuario:', error);
       setUsuario(null);

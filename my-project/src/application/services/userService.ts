@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import {
   doc,
+  deleteDoc,
   getDoc,
   runTransaction,
   writeBatch,
@@ -19,6 +20,7 @@ import {
   query,
   where,
   getDocs,
+  DocumentReference,
 } from 'firebase/firestore';
 import { auth, db } from '../../infrastructure/firebase/config';
 import { Usuario } from '../../domain/models/Usuario';
@@ -39,25 +41,90 @@ export interface UserResult {
  */
 export class UserService {
   /**
+   * Re-autentica al usuario actual para operaciones sensibles (ej: borrar cuenta)
+   */
+  private static async reauthenticateCurrentUser(currentPassword: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      throw new Error('No hay usuario autenticado');
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+  }
+
+  /**
+   * Ejecuta borrados en batches para respetar el límite de Firestore
+   */
+  private static async deleteInBatches(refs: DocumentReference[]): Promise<void> {
+    const MAX_BATCH_SIZE = 450;
+
+    for (let i = 0; i < refs.length; i += MAX_BATCH_SIZE) {
+      const chunk = refs.slice(i, i + MAX_BATCH_SIZE);
+      const batch = writeBatch(db);
+
+      chunk.forEach((ref) => {
+        batch.delete(ref);
+      });
+
+      await batch.commit();
+    }
+  }
+
+  /**
    * T034: Obtiene los datos de perfil de un usuario
    * 
+   * Con retry automático para manejar latencia de replicación en Firestore
+   * (especialmente importante después de registro nuevo)
+   * 
    * @param userId - UID del usuario
+   * @param maxRetries - Número máximo de intentos (default: 5)
    * @returns Datos del usuario o null si no existe
    */
-  static async getUserData(userId: string): Promise<Usuario | null> {
-    try {
-      const userRef = doc(db, 'usuarios', userId);
-      const userDoc = await getDoc(userRef);
+  static async getUserData(userId: string, maxRetries: number = 5): Promise<Usuario | null> {
+    let lastError: Error | null = null;
 
-      if (!userDoc.exists()) {
-        return null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const userRef = doc(db, 'usuarios', userId);
+        const userDoc = await getDoc(userRef);
+
+        if (userDoc.exists()) {
+          // Documento encontrado exitosamente
+          return Usuario.fromFirestore(userDoc.data());
+        }
+
+        // Documento no existe aún, intentar de nuevo si hay reintentos
+        if (attempt < maxRetries - 1) {
+          const delayMs = Math.pow(2, attempt) * 100; // 100ms, 200ms, 400ms, 800ms, 1600ms
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      } catch (error) {
+        // Guardar error por si falla todos los reintentos
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Si no es el último intento, esperar e intentar de nuevo
+        if (attempt < maxRetries - 1) {
+          const delayMs = Math.pow(2, attempt) * 100;
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
-
-      return Usuario.fromFirestore(userDoc.data());
-    } catch (error) {
-      console.error('Error al obtener datos de usuario:', error);
-      return null;
     }
+
+    // Si llegamos aquí, todos los intentos fallaron
+    if (lastError) {
+      console.error(
+        `Error al obtener datos de usuario después de ${maxRetries} intentos:`,
+        lastError
+      );
+    } else {
+      console.warn(
+        `Documento de usuario ${userId} no encontrado después de ${maxRetries} intentos ` +
+        '(esto puede ocurrir si el usuario acaba de registrarse y Firestore aún no ha replicado el documento)'
+      );
+    }
+
+    return null;
   }
 
   /**
@@ -238,9 +305,26 @@ export class UserService {
     userId: string,
     currentUser: Usuario,
     targetUserRole: string,
-    targetUsername: string
+    targetUsername: string,
+    currentPassword?: string
   ): Promise<UserResult> {
+    let stage = 'inicio';
+
     try {
+      // Para cuenta propia, re-autenticar antes de ejecutar borrado en Firestore
+      // y evitar borrados parciales si la contraseña es incorrecta.
+      if (currentUser.uid === userId) {
+        stage = 'reautenticar usuario';
+        if (!currentPassword) {
+          return {
+            success: false,
+            error: 'Debes confirmar tu contraseña para borrar tu cuenta',
+          };
+        }
+
+        await this.reauthenticateCurrentUser(currentPassword);
+      }
+
       // Validar que un admin no puede borrar cuenta de otro admin
       if (currentUser.isAdmin() && currentUser.uid !== userId) {
         if (!AdminRules.puedeBorrarCuenta(currentUser, userId, targetUserRole as any)) {
@@ -252,62 +336,36 @@ export class UserService {
       }
 
       // 1. Obtener todas las publicaciones del usuario
+      stage = 'leer publicaciones del usuario';
       const postsQuery = query(
         collection(db, 'publicaciones'),
         where('autorId', '==', userId)
       );
       const postsSnapshot = await getDocs(postsQuery);
 
-      // 2. Borrar todas las publicaciones y sus likes (en batches)
-      const batch = writeBatch(db);
-      let operationCount = 0;
-      const MAX_BATCH_SIZE = 500;
-
-      for (const postDoc of postsSnapshot.docs) {
-        // Borrar la publicación
-        batch.delete(postDoc.ref);
-        operationCount++;
-
-        // Borrar todos los likes de esta publicación
-        const likesQuery = query(
-          collection(db, `publicaciones/${postDoc.id}/likes`)
-        );
-        const likesSnapshot = await getDocs(likesQuery);
-
-        likesSnapshot.docs.forEach((likeDoc) => {
-          if (operationCount < MAX_BATCH_SIZE) {
-            batch.delete(likeDoc.ref);
-            operationCount++;
-          }
-        });
-
-        // Si alcanzamos el límite, commit y crear nuevo batch
-        if (operationCount >= MAX_BATCH_SIZE) {
-          await batch.commit();
-          operationCount = 0;
-        }
+      const postRefs: DocumentReference[] = postsSnapshot.docs.map((postDoc) => postDoc.ref);
+      // 2. Borrar publicaciones del usuario (las subcolecciones quedan huérfanas en Firestore)
+      stage = 'borrar publicaciones del usuario';
+      if (postRefs.length > 0) {
+        await this.deleteInBatches(postRefs);
       }
 
-      // 3. Borrar todos los likes dados por el usuario a otras publicaciones
-      // (Esto requeriría una query collection-group que no es eficiente)
-      // En producción se haría con Cloud Functions, pero no está permitido
-      // Alternativa: dejar huérfanos (se limpiarán eventualmente)
-
-      // 4. Borrar reserva de username
+      // 3. Borrar reserva de username si pertenece al usuario
+      stage = 'borrar reserva de username';
       const usernameRef = doc(db, 'usernames', targetUsername);
-      batch.delete(usernameRef);
-
-      // 5. Borrar documento de usuario
-      const userRef = doc(db, 'usuarios', userId);
-      batch.delete(userRef);
-
-      // Commit final
-      if (operationCount > 0) {
-        await batch.commit();
+      const usernameDoc = await getDoc(usernameRef);
+      if (usernameDoc.exists() && usernameDoc.data().userId === userId) {
+        await deleteDoc(usernameRef);
       }
 
-      // 6. Borrar usuario de Firebase Auth (solo si es la cuenta propia)
+      // 4. Borrar documento de usuario (al final para no afectar helpers de reglas durante el proceso)
+      stage = 'borrar documento de usuario';
+      const userRef = doc(db, 'usuarios', userId);
+      await deleteDoc(userRef);
+
+      // 5. Borrar usuario de Firebase Auth (solo si es la cuenta propia)
       if (currentUser.uid === userId) {
+        stage = 'borrar usuario en Firebase Auth';
         const firebaseUser = auth.currentUser;
         if (firebaseUser) {
           await deleteFirebaseAuthUser(firebaseUser);
@@ -318,9 +376,21 @@ export class UserService {
         success: true,
       };
     } catch (error: any) {
+      let errorMessage = error.message || 'Error al eliminar cuenta';
+
+      if (error.code === 'permission-denied') {
+        errorMessage = `Permisos insuficientes al intentar ${stage}.`;
+      }
+
+      if (error.code === 'auth/wrong-password') {
+        errorMessage = 'La contraseña actual es incorrecta';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'Por seguridad, vuelve a iniciar sesión e intenta nuevamente';
+      }
+
       return {
         success: false,
-        error: error.message || 'Error al eliminar cuenta',
+        error: errorMessage,
       };
     }
   }

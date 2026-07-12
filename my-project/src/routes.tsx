@@ -25,6 +25,7 @@ import { RegisterPage } from './ui/pages/RegisterPage';
 import { ForgotPasswordPage } from './ui/pages/ForgotPasswordPage';
 import { FeedPage } from './ui/pages/FeedPage';
 import { ProfilePage } from './ui/pages/ProfilePage';
+import { UserProfilePage } from './ui/pages/UserProfilePage';
 import { EditProfilePage } from './ui/pages/EditProfilePage';
 import { AdminPanelPage } from './ui/pages/AdminPanelPage';
 
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
       {
         path: 'profile',
         element: <ProfilePage />,
+      },
+      {
+        path: 'profile/:userId',
+        element: <UserProfilePage />,
       },
       {
         path: 'profile/edit',

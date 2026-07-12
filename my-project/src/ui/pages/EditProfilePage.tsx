@@ -6,6 +6,7 @@
  */
 
 import { useState, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
@@ -15,7 +16,8 @@ import { useAuth } from '../hooks/useAuth';
 import './EditProfilePage.css';
 
 export function EditProfilePage() {
-  const { usuario, refreshUser } = useAuth();
+  const navigate = useNavigate();
+  const { usuario, refreshUser, logout } = useAuth();
 
   // Formulario de username
   const [usernameForm, setUsernameForm] = useState({
@@ -36,6 +38,9 @@ export function EditProfilePage() {
   // Modal de confirmación de borrado
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleUsernameSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -132,20 +137,45 @@ export function EditProfilePage() {
   const handleDeleteAccount = async () => {
     if (!usuario) return;
 
+    setDeleteError('');
+
     if (deleteConfirmation !== 'BORRAR') {
-      alert('Debes escribir "BORRAR" para confirmar');
+      setDeleteError('Debes escribir "BORRAR" para confirmar');
+      return;
+    }
+
+    if (!deletePassword) {
+      setDeleteError('Debes ingresar tu contraseña actual para confirmar');
       return;
     }
 
     try {
-      // T102: Borrado de cuenta propia - por ahora simplificado
-      console.log('Borrar cuenta de:', usuario.uid);
-      alert('Funcionalidad de borrado completada. Por seguridad, esta demo no borra realmente la cuenta.');
-      // En producción sería:
-      // const result = await UserService.deleteAccount(...);
-      // navigate('/login');
+      setDeleteLoading(true);
+
+      const result = await UserService.deleteAccount(
+        usuario.uid,
+        usuario,
+        usuario.rol,
+        usuario.username,
+        deletePassword
+      );
+
+      if (!result.success) {
+        setDeleteError(result.error || 'Error al borrar la cuenta');
+        setDeleteLoading(false);
+        return;
+      }
+
+      setShowDeleteModal(false);
+      setDeleteConfirmation('');
+      setDeletePassword('');
+      alert('Tu cuenta fue eliminada correctamente');
+      await logout();
+      navigate('/register', { replace: true });
     } catch (err: any) {
-      alert('Error al borrar la cuenta: ' + err.message);
+      setDeleteError(err.message || 'Error al borrar la cuenta');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -268,10 +298,13 @@ export function EditProfilePage() {
           onClose={() => {
             setShowDeleteModal(false);
             setDeleteConfirmation('');
+            setDeletePassword('');
+            setDeleteError('');
           }}
           title="Borrar cuenta"
         >
           <div className="delete-modal-content">
+            {deleteError && <ErrorMessage message={deleteError} />}
             <p className="delete-warning">
               ⚠️ Esta acción es <strong>irreversible</strong>.
             </p>
@@ -292,7 +325,22 @@ export function EditProfilePage() {
               name="deleteConfirmation"
               placeholder="Escribe BORRAR"
               value={deleteConfirmation}
-              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              onChange={(e) => {
+                setDeleteConfirmation(e.target.value);
+                setDeleteError('');
+              }}
+            />
+            <Input
+              type="password"
+              name="deletePassword"
+              label="Contraseña actual"
+              placeholder="Tu contraseña actual"
+              value={deletePassword}
+              onChange={(e) => {
+                setDeletePassword(e.target.value);
+                setDeleteError('');
+              }}
+              autoComplete="current-password"
             />
             <div className="delete-modal-actions">
               <Button
@@ -300,16 +348,19 @@ export function EditProfilePage() {
                 onClick={() => {
                   setShowDeleteModal(false);
                   setDeleteConfirmation('');
+                  setDeletePassword('');
+                  setDeleteError('');
                 }}
+                disabled={deleteLoading}
               >
                 Cancelar
               </Button>
               <Button
                 variant="danger"
                 onClick={handleDeleteAccount}
-                disabled={deleteConfirmation !== 'BORRAR'}
+                disabled={deleteConfirmation !== 'BORRAR' || !deletePassword || deleteLoading}
               >
-                Borrar cuenta permanentemente
+                {deleteLoading ? 'Borrando cuenta...' : 'Borrar cuenta permanentemente'}
               </Button>
             </div>
           </div>

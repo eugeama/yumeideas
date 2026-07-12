@@ -40,10 +40,13 @@ interface PostCardProps {
   onEdit?: () => void;
   /** Callback al borrar */
   onDelete?: () => void;
+  /** Callback al hacer clic en el autor */
+  onAuthorClick?: (authorId: string) => void;
 }
 
 export function PostCard({
   content,
+  authorId,
   authorUsername,
   authorRole,
   visibility,
@@ -55,6 +58,7 @@ export function PostCard({
   onLike,
   onEdit,
   onDelete,
+  onAuthorClick,
 }: PostCardProps) {
   const isAuthorAdmin = authorRole === UserRole.ADMIN;
   const isPrivate = visibility === PostVisibility.PRIVADA;
@@ -90,7 +94,13 @@ export function PostCard({
     <article className="post-card">
       <div className="post-card-header">
         <div className="post-card-author">
-          <span className="author-username">{authorUsername}</span>
+          <button
+            className="author-username-button"
+            onClick={() => onAuthorClick?.(authorId)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+          >
+            <span className="author-username">{authorUsername}</span>
+          </button>
           {isAuthorAdmin && (
             <span className="author-badge admin-badge" title="Administrador">
               Admin
