@@ -3,4 +3,3 @@
  */
 
 export { LikeRules } from './likeRules';
-export { AdminRules } from './adminRules';

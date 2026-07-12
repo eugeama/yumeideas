@@ -53,12 +53,7 @@ export class Usuario {
     this._username = newUsername;
   }
 
-  /**
-   * Verifica si el usuario es administrador
-   */
-  isAdmin(): boolean {
-    return this.rol === UserRole.ADMIN;
-  }
+
 
   /**
    * Calcula la edad del usuario en años

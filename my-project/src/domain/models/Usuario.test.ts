@@ -127,9 +127,6 @@ describe('Usuario - Modelo de Dominio', () => {
     it('rol debe ser de solo lectura', () => {
       const usuario = crearUsuario({ rol: UserRole.USUARIO });
       
-      // TypeScript no permite asignar directamente
-      // usuario.rol = UserRole.ADMIN; // Error de compilación
-      
       // Verificar que el rol se mantiene inmutable
       expect(usuario.rol).toBe(UserRole.USUARIO);
     });
@@ -163,18 +160,6 @@ describe('Usuario - Modelo de Dominio', () => {
 
       usuario.setUsername('nuevo_username');
       expect(usuario.username).toBe('nuevo_username');
-    });
-  });
-
-  describe('Detección de rol admin', () => {
-    it('debe detectar correctamente usuario normal', () => {
-      const usuario = crearUsuario({ rol: UserRole.USUARIO });
-      expect(usuario.isAdmin()).toBe(false);
-    });
-
-    it('debe detectar correctamente administrador', () => {
-      const admin = crearUsuario({ rol: UserRole.ADMIN });
-      expect(admin.isAdmin()).toBe(true);
     });
   });
 

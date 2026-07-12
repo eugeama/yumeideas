@@ -2,7 +2,7 @@
  * Tests unitarios del modelo Publicacion
  * 
  * Cubre:
- * - T050: puedeEditar (solo autor), puedeBorrar (autor o admin con protección), puedeVer (según visibilidad)
+ * - T050: puedeEditar (solo autor), puedeBorrar (solo autor), puedeVer (según visibilidad)
  */
 
 import { Publicacion, PublicacionData } from './Publicacion';
@@ -13,14 +13,10 @@ import { UserRole } from '../enums/UserRole';
 describe('Publicacion - Modelo de Dominio', () => {
   let usuarioNormal: Usuario;
   let otroUsuarioNormal: Usuario;
-  let admin: Usuario;
-  let otroAdmin: Usuario;
 
   beforeEach(() => {
     usuarioNormal = crearUsuario({ uid: 'user1', username: 'usuario1', rol: UserRole.USUARIO });
     otroUsuarioNormal = crearUsuario({ uid: 'user2', username: 'usuario2', rol: UserRole.USUARIO });
-    admin = crearUsuario({ uid: 'admin1', username: 'admin1', rol: UserRole.ADMIN });
-    otroAdmin = crearUsuario({ uid: 'admin2', username: 'admin2', rol: UserRole.ADMIN });
   });
 
   describe('puedeEditar - Solo el autor puede editar', () => {
@@ -33,19 +29,9 @@ describe('Publicacion - Modelo de Dominio', () => {
       const publicacion = crearPublicacion({ autorId: usuarioNormal.uid });
       expect(publicacion.puedeEditar(otroUsuarioNormal)).toBe(false);
     });
-
-    it('un admin NO debe poder editar publicación ajena', () => {
-      const publicacion = crearPublicacion({ autorId: usuarioNormal.uid });
-      expect(publicacion.puedeEditar(admin)).toBe(false);
-    });
-
-    it('un admin debe poder editar su propia publicación', () => {
-      const publicacion = crearPublicacion({ autorId: admin.uid, autorRol: UserRole.ADMIN });
-      expect(publicacion.puedeEditar(admin)).toBe(true);
-    });
   });
 
-  describe('puedeBorrar - Autor o admin con protección (AMB-07)', () => {
+  describe('puedeBorrar - Solo el autor puede borrar', () => {
     it('el autor debe poder borrar su propia publicación', () => {
       const publicacion = crearPublicacion({ autorId: usuarioNormal.uid });
       expect(publicacion.puedeBorrar(usuarioNormal)).toBe(true);
@@ -54,30 +40,6 @@ describe('Publicacion - Modelo de Dominio', () => {
     it('un usuario normal NO debe poder borrar publicación ajena', () => {
       const publicacion = crearPublicacion({ autorId: otroUsuarioNormal.uid });
       expect(publicacion.puedeBorrar(usuarioNormal)).toBe(false);
-    });
-
-    it('un admin debe poder borrar publicación de usuario normal', () => {
-      const publicacion = crearPublicacion({ 
-        autorId: usuarioNormal.uid,
-        autorRol: UserRole.USUARIO 
-      });
-      expect(publicacion.puedeBorrar(admin)).toBe(true);
-    });
-
-    it('un admin NO debe poder borrar publicación de otro admin (AMB-07)', () => {
-      const publicacion = crearPublicacion({ 
-        autorId: otroAdmin.uid,
-        autorRol: UserRole.ADMIN 
-      });
-      expect(publicacion.puedeBorrar(admin)).toBe(false);
-    });
-
-    it('un admin debe poder borrar su propia publicación', () => {
-      const publicacion = crearPublicacion({ 
-        autorId: admin.uid,
-        autorRol: UserRole.ADMIN 
-      });
-      expect(publicacion.puedeBorrar(admin)).toBe(true);
     });
   });
 
@@ -90,7 +52,6 @@ describe('Publicacion - Modelo de Dominio', () => {
         });
 
         expect(publicacion.puedeVer(otroUsuarioNormal)).toBe(true);
-        expect(publicacion.puedeVer(admin)).toBe(true);
       });
 
       it('el autor debe poder ver su propia publicación pública', () => {
@@ -120,25 +81,6 @@ describe('Publicacion - Modelo de Dominio', () => {
         });
 
         expect(publicacion.puedeVer(usuarioNormal)).toBe(false);
-      });
-
-      it('un admin debe poder ver publicación privada de cualquier usuario', () => {
-        const publicacion = crearPublicacion({ 
-          visibilidad: PostVisibility.PRIVADA,
-          autorId: usuarioNormal.uid 
-        });
-
-        expect(publicacion.puedeVer(admin)).toBe(true);
-      });
-
-      it('un admin debe poder ver publicación privada de otro admin', () => {
-        const publicacion = crearPublicacion({ 
-          visibilidad: PostVisibility.PRIVADA,
-          autorId: otroAdmin.uid,
-          autorRol: UserRole.ADMIN 
-        });
-
-        expect(publicacion.puedeVer(admin)).toBe(true);
       });
     });
   });

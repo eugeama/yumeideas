@@ -20,7 +20,7 @@ import './FeedPage.css';
 
 export function FeedPage() {
   const navigate = useNavigate();
-  const { usuario, isAdmin } = useAuth();
+  const { usuario } = useAuth();
   const [posts, setPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -59,7 +59,6 @@ export function FeedPage() {
             content: pub.contenido,
             authorId: pub.autorId,
             authorUsername: pub.autorUsername,
-            authorRole: pub.autorRol,
             visibility: pub.visibilidad,
             createdAt: pub.fechaCreacion,
             likesCount: pub.likesCount,
@@ -99,7 +98,6 @@ export function FeedPage() {
             content: pub.contenido,
             authorId: pub.autorId,
             authorUsername: pub.autorUsername,
-            authorRole: pub.autorRol,
             visibility: pub.visibilidad,
             createdAt: pub.fechaCreacion,
             likesCount: pub.likesCount,
@@ -313,7 +311,6 @@ export function FeedPage() {
             hasMore={hasMore}
             onLoadMore={handleLoadMore}
             currentUserId={usuario?.uid || ''}
-            isAdmin={isAdmin}
             onLike={handleLike}
             onEdit={handleEdit}
             onDelete={handleDelete}

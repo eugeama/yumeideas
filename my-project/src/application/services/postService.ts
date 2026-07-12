@@ -25,7 +25,6 @@ import { Publicacion } from '../../domain/models/Publicacion';
 import { Usuario } from '../../domain/models/Usuario';
 import { PostVisibility } from '../../domain/enums/PostVisibility';
 import { PostValidators } from '../../infrastructure/utils/validators';
-import { AdminRules } from '../../domain/rules/adminRules';
 
 /**
  * Datos para crear una publicación
@@ -200,9 +199,7 @@ export class PostService {
    * T040: Elimina una publicación
    * 
    * Validaciones:
-   * - El autor puede borrar su propia publicación
-   * - Un admin puede borrar publicaciones de usuarios normales
-   * - Un admin NO puede borrar publicaciones de otro admin (AMB-07)
+   * - Solo el autor puede borrar su propia publicación
    * 
    * @param postId - ID de la publicación
    * @param currentUser - Usuario que ejecuta la acción
@@ -228,14 +225,6 @@ export class PostService {
 
       // Validar que el usuario puede borrar
       if (!publicacion.puedeBorrar(currentUser)) {
-        // Mensaje específico para protección entre admins
-        if (currentUser.isAdmin() && !publicacion.puedeBorrar(currentUser)) {
-          return {
-            success: false,
-            error: AdminRules.getMensajeErrorProteccionAdmin(),
-          };
-        }
-
         return {
           success: false,
           error: 'No tienes permisos para borrar esta publicación',
@@ -321,10 +310,8 @@ export class PostService {
   /**
    * T042: Obtiene las publicaciones de un usuario específico
    * 
-   * Si el usuario consultado es el autor o un admin, muestra públicas + privadas.
+   * Si es el usuario mismo, muestra públicas + privadas.
    * Si no, muestra solo públicas.
-   * 
-   * Usa índice compuesto (autorId ASC, fechaCreacion DESC).
    * 
    * @param userId - ID del usuario cuyas publicaciones se consultan
    * @param currentUser - Usuario que ejecuta la consulta
@@ -339,10 +326,10 @@ export class PostService {
     lastDocument?: QueryDocumentSnapshot
   ): Promise<PostsQueryResult> {
     try {
-      // Si no es dueño ni admin, consultamos solo públicas para cumplir reglas de seguridad.
-      const isOwnerOrAdmin = currentUser.uid === userId || currentUser.isAdmin();
+      // Si no es dueño, consultamos solo públicas para cumplir reglas de seguridad.
+      const isOwner = currentUser.uid === userId;
 
-      let q = isOwnerOrAdmin
+      let q = isOwner
         ? query(
             collection(db, 'publicaciones'),
             where('autorId', '==', userId),
@@ -370,7 +357,7 @@ export class PostService {
       const posts = postsToReturn
         .map((doc) => Publicacion.fromFirestore(doc.id, doc.data()))
         .filter((post) => {
-          if (isOwnerOrAdmin) {
+          if (isOwner) {
             return true; // Ver todas (públicas + privadas)
           }
           return post.esPublica(); // Ver solo públicas
@@ -383,54 +370,6 @@ export class PostService {
       };
     } catch (error) {
       console.error('Error al obtener publicaciones de usuario:', error);
-      return {
-        posts: [],
-        hasMore: false,
-      };
-    }
-  }
-
-  /**
-   * T043: Obtiene todas las publicaciones para admin
-   * 
-   * Sin filtro de visibilidad. Solo accesible para administradores.
-   * 
-   * @param pageSize - Número de publicaciones por página (default: 50)
-   * @param lastDocument - Último documento de la página anterior
-   * @returns Todas las publicaciones
-   */
-  static async getAllPostsForAdmin(
-    pageSize: number = 50,
-    lastDocument?: QueryDocumentSnapshot
-  ): Promise<PostsQueryResult> {
-    try {
-      let q = query(
-        collection(db, 'publicaciones'),
-        orderBy('fechaCreacion', 'desc'),
-        limit(pageSize + 1)
-      );
-
-      if (lastDocument) {
-        q = query(q, startAfter(lastDocument));
-      }
-
-      const snapshot = await getDocs(q);
-      const docs = snapshot.docs;
-
-      const hasMore = docs.length > pageSize;
-      const postsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
-
-      const posts = postsToReturn.map((doc) =>
-        Publicacion.fromFirestore(doc.id, doc.data())
-      );
-
-      return {
-        posts,
-        lastDoc: postsToReturn[postsToReturn.length - 1],
-        hasMore,
-      };
-    } catch (error) {
-      console.error('Error al obtener todas las publicaciones:', error);
       return {
         posts: [],
         hasMore: false,

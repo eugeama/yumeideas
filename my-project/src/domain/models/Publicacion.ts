@@ -138,8 +138,8 @@ export class Publicacion {
       return true;
     }
 
-    // Publicación privada: solo autor o admin
-    return this.esAutor(usuario) || usuario.isAdmin();
+    // Publicación privada: solo autor
+    return this.esAutor(usuario);
   }
 
   /**
@@ -158,27 +158,13 @@ export class Publicacion {
   /**
    * Verifica si un usuario puede borrar esta publicación
    * 
-   * Reglas:
-   * - El autor puede borrar su propia publicación
-   * - Un admin puede borrar publicaciones de usuarios normales
-   * - Un admin NO puede borrar publicaciones de otro admin (AMB-07)
+   * Regla: Solo el autor puede borrar su propia publicación
    * 
    * @param usuario - Usuario que intenta borrar
    * @returns true si el usuario puede borrar
    */
   puedeBorrar(usuario: Usuario): boolean {
-    // El autor siempre puede borrar su propia publicación
-    if (this.esAutor(usuario)) {
-      return true;
-    }
-
-    // Un admin puede borrar publicaciones de usuarios normales
-    // pero NO de otros admins
-    if (usuario.isAdmin()) {
-      return this.autorRol !== UserRole.ADMIN;
-    }
-
-    return false;
+    return this.esAutor(usuario);
   }
 
   /**

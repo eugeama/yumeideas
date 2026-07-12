@@ -13,14 +13,13 @@ import { LikeService } from '../../application/services/likeService';
 import { UserService } from '../../application/services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { PostVisibility } from '../../domain/enums/PostVisibility';
-import { UserRole } from '../../domain/enums/UserRole';
 import { Usuario } from '../../domain/models/Usuario';
 import './ProfilePage.css';
 
 export function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { usuario: currentUser, isAdmin: currentUserIsAdmin } = useAuth();
+  const { usuario: currentUser } = useAuth();
 
   const [userProfile, setUserProfile] = useState<Usuario | null>(null);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -73,7 +72,6 @@ export function UserProfilePage() {
             content: pub.contenido,
             authorId: pub.autorId,
             authorUsername: pub.autorUsername,
-            authorRole: pub.autorRol,
             visibility: pub.visibilidad,
             createdAt: pub.fechaCreacion,
             likesCount: pub.likesCount,
@@ -185,9 +183,6 @@ export function UserProfilePage() {
           <div className="profile-info">
             <h1>{isOwnProfile ? 'Mi perfil' : 'Perfil de usuario'}</h1>
             <p className="profile-username">@{userProfile.username}</p>
-            {userProfile.rol === UserRole.ADMIN && (
-              <span className="admin-badge">👑 Admin</span>
-            )}
           </div>
           <div className="profile-actions">
             <Button
@@ -219,7 +214,6 @@ export function UserProfilePage() {
           <PostList
             posts={posts}
             currentUserId={currentUser?.uid || ''}
-            isAdmin={currentUserIsAdmin}
             onLike={handleLike}
             onDelete={handleDelete}
             onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}

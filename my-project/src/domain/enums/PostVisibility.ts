@@ -14,11 +14,9 @@ export enum PostVisibility {
   PUBLICA = 'publica',
 
   /**
-   * Publicación visible solo para el autor y administradores
+   * Publicación visible solo para el autor
    * - NO aparece en el feed público
-   * - Solo visible para:
-   *   - El autor de la publicación
-   *   - Usuarios con rol de administrador
+   * - Solo visible para el autor de la publicación
    * - NO puede recibir "me gusta" de otros usuarios
    */
   PRIVADA = 'privada'

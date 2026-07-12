@@ -14,9 +14,8 @@ rules_version = '2';
  * - /publicaciones/{postId}/likes/{userId} - Likes de publicaciones
  * 
  * Reglas de negocio implementadas:
- * - AMB-01: Campos inmutables (email, fechaNacimiento, rol)
+ * - AMB-01: Campos inmutables (email, fechaNacimiento)
  * - AMB-05: NO like a publicación propia
- * - AMB-07: Admin NO puede afectar otro admin
  * - AMB-09: Edad mínima 13 años
  */
 
@@ -39,21 +38,6 @@ service cloud.firestore {
      */
     function getUserData() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
-    }
-    
-    /**
-     * Verifica si el usuario autenticado es administrador
-     */
-    function isAdmin() {
-      return isAuthenticated() && getUserData().rol == 'admin';
-    }
-    
-    /**
-     * Verifica si un usuario objetivo es administrador
-     * @param userId - UID del usuario a verificar
-     */
-    function targetIsAdmin(userId) {
-      return get(/databases/$(database)/documents/usuarios/$(userId)).data.rol == 'admin';
     }
     
     /**
@@ -90,14 +74,6 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/publicaciones/$(publicacionId)).data.autorId == request.auth.uid;
     }
     
-    /**
-     * Verifica si el autor de una publicación es administrador
-     * @param autorId - UID del autor
-     */
-    function isPostAuthorAdmin(autorId) {
-      return targetIsAdmin(autorId);
-    }
-    
     // ============================================================================
     // COLECCIÓN: /usuarios/{userId}
     // ============================================================================
@@ -108,8 +84,8 @@ service cloud.firestore {
      * Permisos:
      * - Read: Cualquier usuario autenticado
      * - Create: Solo el propio usuario, con validación de edad >= 13 años
-     * - Update: Solo el propio usuario, sin modificar email/fechaNacimiento/rol
-     * - Delete: Propio usuario O admin (con protección entre admins)
+     * - Update: Solo el propio usuario, sin modificar email/fechaNacimiento
+     * - Delete: Solo el propio usuario
      */
     match /usuarios/{userId} {
       // Lectura: cualquier usuario autenticado puede leer perfiles
@@ -119,18 +95,17 @@ service cloud.firestore {
       allow create: if isAuthenticated()
                     && request.auth.uid == userId
                     && request.resource.data.uid == userId
-                    && request.resource.data.rol == 'usuario'  // No auto-asignar admin
                     && isValidAge(request.resource.data.fechaNacimiento)  // Edad >= 13
-                    && request.resource.data.keys().hasAll(['uid', 'username', 'email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+                    && request.resource.data.keys().hasAll(['uid', 'username', 'email', 'fechaNacimiento', 'fechaCreacion']);
       
       // Actualización: solo el propio usuario, sin modificar campos inmutables (AMB-01)
       allow update: if isAuthenticated()
                     && request.auth.uid == userId
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'fechaNacimiento', 'rol', 'fechaCreacion']);
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'fechaNacimiento', 'fechaCreacion']);
       
-      // Borrado: propio usuario O admin (con protección entre admins - AMB-07)
+      // Borrado: solo el propio usuario
       allow delete: if isAuthenticated()
-                    && (request.auth.uid == userId || (isAdmin() && !targetIsAdmin(userId)));
+                    && request.auth.uid == userId;
     }
     
     // ============================================================================
@@ -172,19 +147,18 @@ service cloud.firestore {
      * Reglas para la colección de publicaciones
      * 
      * Permisos:
-     * - Read: Según visibilidad (pública = todos, privada = autor/admin)
+     * - Read: Según visibilidad (pública = todos, privada = autor)
      * - Create: Cualquier usuario autenticado
      * - Update: Solo el autor (sin modificar campos inmutables)
-     * - Delete: Autor O admin (con protección entre admins)
+     * - Delete: Solo el autor
      */
     match /publicaciones/{postId} {
       // Lectura: según visibilidad
       // - Pública: cualquier usuario autenticado
-      // - Privada: solo autor o admin
+      // - Privada: solo autor
       allow read: if isAuthenticated()
                   && (resource.data.visibilidad == 'publica'
-                      || resource.data.autorId == request.auth.uid
-                      || isAdmin());
+                      || resource.data.autorId == request.auth.uid);
       
       // Creación: cualquier usuario autenticado
       allow create: if isAuthenticated()
@@ -217,10 +191,9 @@ service cloud.firestore {
                       )
                     );
       
-      // Borrado: autor O admin (con protección entre admins - AMB-07)
+      // Borrado: solo el autor
       allow delete: if isAuthenticated()
-                    && (resource.data.autorId == request.auth.uid
-                        || (isAdmin() && !isPostAuthorAdmin(resource.data.autorId)));
+                    && resource.data.autorId == request.auth.uid;
       
       // ============================================================================
       // SUBCOLECCIÓN: /publicaciones/{postId}/likes/{userId}

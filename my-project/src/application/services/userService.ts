@@ -25,7 +25,6 @@ import {
 import { auth, db } from '../../infrastructure/firebase/config';
 import { Usuario } from '../../domain/models/Usuario';
 import { UserValidators } from '../../infrastructure/utils/validators';
-import { AdminRules } from '../../domain/rules/adminRules';
 
 /**
  * Resultado de operaciones de usuario
@@ -282,29 +281,23 @@ export class UserService {
   }
 
   /**
-   * T037: Elimina la cuenta de un usuario (propia o por admin)
+   * T037: Elimina la cuenta de un usuario (propia o por operación de usuario)
    * 
    * Borrado en cascada:
    * 1. Todas las publicaciones del usuario
-   * 2. Todos los likes dados por el usuario
-   * 3. Todos los likes a publicaciones del usuario
-   * 4. Reserva de username
-   * 5. Documento de usuario en Firestore
-   * 6. Usuario de Firebase Auth
-   * 
-   * Validaciones:
-   * - Un admin NO puede borrar cuenta de otro admin (AMB-07)
+   * 2. Reserva de username
+   * 3. Documento de usuario en Firestore
+   * 4. Usuario de Firebase Auth
    * 
    * @param userId - UID del usuario a eliminar
    * @param currentUser - Usuario que ejecuta la acción
-   * @param targetUserRole - Rol del usuario a eliminar
    * @param targetUsername - Username del usuario a eliminar
+   * @param currentPassword - Contraseña actual para confirmar
    * @returns Resultado de la operación
    */
   static async deleteAccount(
     userId: string,
     currentUser: Usuario,
-    targetUserRole: string,
     targetUsername: string,
     currentPassword?: string
   ): Promise<UserResult> {
@@ -325,14 +318,12 @@ export class UserService {
         await this.reauthenticateCurrentUser(currentPassword);
       }
 
-      // Validar que un admin no puede borrar cuenta de otro admin
-      if (currentUser.isAdmin() && currentUser.uid !== userId) {
-        if (!AdminRules.puedeBorrarCuenta(currentUser, userId, targetUserRole as any)) {
-          return {
-            success: false,
-            error: AdminRules.getMensajeErrorProteccionAdmin(),
-          };
-        }
+      // Validar que solo el usuario mismo puede borrar su cuenta
+      if (currentUser.uid !== userId) {
+        return {
+          success: false,
+          error: 'Solo puedes borrar tu propia cuenta',
+        };
       }
 
       // 1. Obtener todas las publicaciones del usuario

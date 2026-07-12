@@ -11,8 +11,5 @@ export { ForgotPasswordPage } from './ForgotPasswordPage';
 export { FeedPage } from './FeedPage';
 export { ProfilePage } from './ProfilePage';
 
-// Páginas de administración (T086)
-export { AdminPanelPage } from './AdminPanelPage';
-
 // Páginas de perfil (T087)
 export { EditProfilePage } from './EditProfilePage';

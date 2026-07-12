@@ -21,7 +21,7 @@ type TabType = 'publicas' | 'privadas';
 
 export function ProfilePage() {
   const navigate = useNavigate();
-  const { usuario, isAdmin } = useAuth();
+  const { usuario } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('publicas');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -57,7 +57,6 @@ export function ProfilePage() {
             content: pub.contenido,
             authorId: pub.autorId,
             authorUsername: pub.autorUsername,
-            authorRole: pub.autorRol,
             visibility: pub.visibilidad,
             createdAt: pub.fechaCreacion,
             likesCount: pub.likesCount,
@@ -257,7 +256,6 @@ export function ProfilePage() {
           <PostList
             posts={displayedPosts}
             currentUserId={usuario.uid}
-            isAdmin={isAdmin}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}

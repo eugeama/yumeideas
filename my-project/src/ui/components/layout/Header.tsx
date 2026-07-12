@@ -13,7 +13,7 @@ import './Header.css';
  * Componente de cabecera de la aplicación
  */
 export function Header() {
-  const { usuario, isAdmin, logout, loading } = useAuth();
+  const { usuario, logout, loading } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -41,11 +41,6 @@ export function Header() {
             <Link to="/profile" className="header__nav-link">
               Mi Perfil
             </Link>
-            {isAdmin && (
-              <Link to="/admin" className="header__nav-link header__nav-link--admin">
-                Admin
-              </Link>
-            )}
           </nav>
         )}
 
@@ -57,7 +52,6 @@ export function Header() {
             <>
               <span className="header__username">
                 {usuario.username}
-                {isAdmin && <span className="header__badge">Admin</span>}
               </span>
               <Button
                 variant="ghost"

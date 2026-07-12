@@ -7,7 +7,6 @@
 import { PostCard } from './PostCard';
 import { Loading } from '../common/Loading';
 import { Button } from '../common/Button';
-import { UserRole } from '../../../domain/enums/UserRole';
 import { PostVisibility } from '../../../domain/enums/PostVisibility';
 import './PostList.css';
 
@@ -16,7 +15,6 @@ export interface PostData {
   content: string;
   authorId: string;
   authorUsername: string;
-  authorRole: UserRole;
   visibility: PostVisibility;
   createdAt: Date;
   likesCount: number;
@@ -34,8 +32,6 @@ interface PostListProps {
   onLoadMore?: () => void;
   /** ID del usuario actual (para determinar si es dueño) */
   currentUserId?: string;
-  /** Si el usuario actual es admin */
-  isAdmin?: boolean;
   /** Callback al dar/quitar like */
   onLike?: (postId: string) => void;
   /** Callback al editar */
@@ -54,7 +50,6 @@ export function PostList({
   hasMore = false,
   onLoadMore,
   currentUserId,
-  isAdmin = false,
   onLike,
   onEdit,
   onDelete,
@@ -89,13 +84,11 @@ export function PostList({
             content={post.content}
             authorId={post.authorId}
             authorUsername={post.authorUsername}
-            authorRole={post.authorRole}
             visibility={post.visibility}
             createdAt={post.createdAt}
             likesCount={post.likesCount}
             hasLiked={post.hasLiked}
             isOwner={currentUserId === post.authorId}
-            isAdmin={isAdmin}
             onLike={onLike ? () => onLike(post.id) : undefined}
             onEdit={onEdit ? () => onEdit(post.id) : undefined}
             onDelete={onDelete ? () => onDelete(post.id) : undefined}

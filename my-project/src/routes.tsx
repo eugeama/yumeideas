@@ -10,14 +10,10 @@
  * - / (feed) - Feed público de publicaciones
  * - /profile - Perfil del usuario actual
  * - /profile/edit - Edición de perfil
- * 
- * Rutas de admin (requieren rol admin):
- * - /admin - Panel de administración
  */
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ui/components/ProtectedRoute';
-import { AdminRoute } from './ui/components/AdminRoute';
 
 // Importar páginas de Fase 8
 import { LoginPage } from './ui/pages/LoginPage';
@@ -27,7 +23,6 @@ import { FeedPage } from './ui/pages/FeedPage';
 import { ProfilePage } from './ui/pages/ProfilePage';
 import { UserProfilePage } from './ui/pages/UserProfilePage';
 import { EditProfilePage } from './ui/pages/EditProfilePage';
-import { AdminPanelPage } from './ui/pages/AdminPanelPage';
 
 /**
  * Configuración del router con React Router v6
@@ -71,18 +66,6 @@ export const router = createBrowserRouter([
       {
         path: 'profile/edit',
         element: <EditProfilePage />,
-      },
-    ],
-  },
-
-  // Rutas de admin (requieren rol admin)
-  {
-    path: '/admin',
-    element: <AdminRoute />,
-    children: [
-      {
-        index: true,
-        element: <AdminPanelPage />,
       },
     ],
   },

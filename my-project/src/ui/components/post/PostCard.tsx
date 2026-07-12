@@ -1,13 +1,12 @@
 /**
  * Componente de tarjeta de publicación
  * 
- * T084: Muestra contenido, autor (username + badge si admin), fecha,
+ * T084: Muestra contenido, autor (username), fecha,
  * contador de likes, botón de like (corazón), botón de editar (solo si es propio),
- * botón de borrar (si es propio o admin)
+ * botón de borrar (si es propio)
  */
 
 import { Button } from '../common/Button';
-import { UserRole } from '../../../domain/enums/UserRole';
 import { PostVisibility } from '../../../domain/enums/PostVisibility';
 import './PostCard.css';
 
@@ -20,8 +19,6 @@ interface PostCardProps {
   authorId: string;
   /** Username del autor */
   authorUsername: string;
-  /** Rol del autor */
-  authorRole: UserRole;
   /** Visibilidad de la publicación */
   visibility: PostVisibility;
   /** Fecha de creación */
@@ -32,8 +29,6 @@ interface PostCardProps {
   hasLiked?: boolean;
   /** Si el usuario actual es el autor */
   isOwner?: boolean;
-  /** Si el usuario actual es admin */
-  isAdmin?: boolean;
   /** Callback al dar/quitar like */
   onLike?: () => void;
   /** Callback al editar */
@@ -48,22 +43,19 @@ export function PostCard({
   content,
   authorId,
   authorUsername,
-  authorRole,
   visibility,
   createdAt,
   likesCount,
   hasLiked = false,
   isOwner = false,
-  isAdmin = false,
   onLike,
   onEdit,
   onDelete,
   onAuthorClick,
 }: PostCardProps) {
-  const isAuthorAdmin = authorRole === UserRole.ADMIN;
   const isPrivate = visibility === PostVisibility.PRIVADA;
   const canEdit = isOwner;
-  const canDelete = isOwner || isAdmin;
+  const canDelete = isOwner;
   const canLike = !isOwner && !isPrivate; // No se puede dar like a publicaciones propias ni privadas
 
   const formatDate = (date: Date): string => {
@@ -101,11 +93,6 @@ export function PostCard({
           >
             <span className="author-username">{authorUsername}</span>
           </button>
-          {isAuthorAdmin && (
-            <span className="author-badge admin-badge" title="Administrador">
-              Admin
-            </span>
-          )}
           {isPrivate && (
             <span className="visibility-badge private-badge" title="Publicación privada">
               🔒 Privada

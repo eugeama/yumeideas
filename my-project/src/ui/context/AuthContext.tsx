@@ -26,9 +26,6 @@ interface AuthContextType {
   /** Indica si se está cargando el estado de autenticación */
   loading: boolean;
   
-  /** Indica si el usuario actual es administrador */
-  isAdmin: boolean;
-  
   /** Método para cerrar sesión */
   logout: () => Promise<void>;
   
@@ -128,7 +125,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     firebaseUser,
     usuario,
     loading,
-    isAdmin: usuario?.isAdmin() ?? false,
     logout,
     refreshUser,
   };
@@ -144,7 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { usuario, loading, isAdmin, logout } = useAuth();
+ *   const { usuario, loading, logout } = useAuth();
  *   
  *   if (loading) return <Loading />;
  *   if (!usuario) return <Redirect to="/login" />;

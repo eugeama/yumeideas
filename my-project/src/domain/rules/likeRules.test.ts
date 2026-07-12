@@ -14,12 +14,10 @@ import { UserRole } from '../enums/UserRole';
 describe('LikeRules - Reglas de Negocio de Likes', () => {
   let usuarioAutor: Usuario;
   let otroUsuario: Usuario;
-  let admin: Usuario;
 
   beforeEach(() => {
     usuarioAutor = crearUsuario({ uid: 'autor1', username: 'autor' });
     otroUsuario = crearUsuario({ uid: 'otro1', username: 'otro' });
-    admin = crearUsuario({ uid: 'admin1', username: 'admin', rol: UserRole.ADMIN });
   });
 
   describe('puedeDarLike - Regla AMB-05: No like a publicación propia', () => {
@@ -41,18 +39,6 @@ describe('LikeRules - Reglas de Negocio de Likes', () => {
       });
 
       const resultado = LikeRules.puedeDarLike(usuarioAutor, publicacion);
-
-      expect(resultado).toBe(false);
-    });
-
-    it('debe rechazar like de admin a su propia publicación', () => {
-      const publicacion = crearPublicacion({
-        autorId: admin.uid,
-        autorRol: UserRole.ADMIN,
-        visibilidad: PostVisibility.PUBLICA
-      });
-
-      const resultado = LikeRules.puedeDarLike(admin, publicacion);
 
       expect(resultado).toBe(false);
     });

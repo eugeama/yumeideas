@@ -39,11 +39,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-.admin-badge {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-}
-
 .private-badge {
   background: var(--color-warning-light);
   color: var(--color-warning-dark);

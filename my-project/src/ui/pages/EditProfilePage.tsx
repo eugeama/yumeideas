@@ -155,7 +155,6 @@ export function EditProfilePage() {
       const result = await UserService.deleteAccount(
         usuario.uid,
         usuario,
-        usuario.rol,
         usuario.username,
         deletePassword
       );
