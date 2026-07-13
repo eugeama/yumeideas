@@ -20,6 +20,7 @@ export function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { usuario: currentUser } = useAuth();
+  const isOwnProfile = currentUser?.uid === userId;
 
   const [userProfile, setUserProfile] = useState<Usuario | null>(null);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -28,7 +29,7 @@ export function UserProfilePage() {
 
   useEffect(() => {
     loadUserProfile();
-  }, [userId]);
+  }, [userId, currentUser?.uid]);
 
   const loadUserProfile = async () => {
     if (!userId) {
@@ -53,16 +54,16 @@ export function UserProfilePage() {
       setUserProfile(user);
 
       // Cargar publicaciones del usuario según permisos del usuario autenticado
-      const result = await PostService.getUserPosts(userId, currentUser || user);
+      const result = await PostService.getUserPosts(userId, currentUser ?? undefined);
 
-      // Filtrar solo publicaciones públicas
-      const publicPosts = result.posts.filter(
-        (pub) => pub.visibilidad === PostVisibility.PUBLICA
-      );
+      // En perfil propio mostrar públicas + privadas; en perfil ajeno solo públicas
+      const visiblePosts = isOwnProfile
+        ? result.posts
+        : result.posts.filter((pub) => pub.visibilidad === PostVisibility.PUBLICA);
 
       // Convertir a PostData[]
       const postsData: PostData[] = await Promise.all(
-        publicPosts.map(async (pub) => {
+        visiblePosts.map(async (pub) => {
           const hasLiked = currentUser
             ? await LikeService.hasUserLiked(pub.id, currentUser.uid)
             : false;
@@ -174,8 +175,6 @@ export function UserProfilePage() {
     );
   }
 
-  const isOwnProfile = currentUser?.uid === userId;
-
   return (
     <div className="profile-page">
       <div className="profile-container">
@@ -210,14 +209,22 @@ export function UserProfilePage() {
         )}
 
         <div className="profile-content">
-          <h2>Publicaciones públicas ({posts.length})</h2>
+          <h2>
+            {isOwnProfile
+              ? `Mis publicaciones (${posts.length})`
+              : `Publicaciones publicas (${posts.length})`}
+          </h2>
           <PostList
             posts={posts}
             currentUserId={currentUser?.uid || ''}
             onLike={handleLike}
             onDelete={handleDelete}
             onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}
-            emptyMessage="Este usuario no tiene publicaciones públicas aún"
+            emptyMessage={
+              isOwnProfile
+                ? 'Aun no tienes publicaciones'
+                : 'Este usuario no tiene publicaciones publicas aun'
+            }
           />
         </div>
       </div>

@@ -321,13 +321,13 @@ export class PostService {
    */
   static async getUserPosts(
     userId: string,
-    currentUser: Usuario,
+    currentUser?: Usuario,
     pageSize: number = 20,
     lastDocument?: QueryDocumentSnapshot
   ): Promise<PostsQueryResult> {
     try {
       // Si no es dueño, consultamos solo públicas para cumplir reglas de seguridad.
-      const isOwner = currentUser.uid === userId;
+      const isOwner = currentUser?.uid === userId;
 
       let q = isOwner
         ? query(
